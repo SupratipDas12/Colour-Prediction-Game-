@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>colour Prediction | Terminal</title>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --dark-bg: #0a0a0a;
+            --error-red: #ff003c;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: black;
+            color: var(--neon-green);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Matrix Canvas */
+        #matrixCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Containers */
+        .container {
+            position: relative;
+            z-index: 2;
+            background: rgba(10, 10, 10, 0.9);
+            border: 2px solid var(--neon-green);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px var(--neon-green), inset 0 0 10px var(--neon-green);
+            text-align: center;
+            width: 320px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);
+            letter-spacing: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            background: #000;
+            border: 1px solid var(--neon-green);
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: var(--neon-green);
+            color: black;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px var(--neon-green);
+            transition: 0.3s;
+        }
+
+        button:hover {
+            box-shadow: 0 0 25px var(--neon-green);
+            transform: scale(1.02);
+        }
+
+        #message {
+            height: 20px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        /* Result Ball */
+        .result-ball {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid var(--neon-green);
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: 0.5s;
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        /* Animations */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px var(--neon-green); transform: scale(1); }
+            50% { box-shadow: 0 0 30px var(--neon-green); transform: scale(1.05); }
+            100% { box-shadow: 0 0 10px var(--neon-green); transform: scale(1); }
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 10px var(--error-red); transform: scale(1); }
+            50% { box-shadow: 0 0 30px var(--error-red); transform: scale(1.05); }
+            100% { box-shadow: 0 0 10px var(--error-red); transform: scale(1); }
+        }
+
+        .spin { animation: spin 0.5s linear infinite; }
+        .pulse-green { animation: pulse 1.5s infinite; border-color: var(--neon-green); color: var(--neon-green); }
+        .pulse-red { animation: pulse-red 1.5s infinite; border-color: var(--error-red); color: var(--error-red); }
+
+        /* Sections Visibility */
+        #loadingSection, #mainSection { display: none; }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0, 255, 65, 0.2);
+            border-top: 5px solid var(--neon-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrixCanvas"></canvas>
+
+    <div id="loginSection" class="container">
+        <h1>Number prediction</h1>
+        <input type="password" id="passInput" placeholder="ENTER ACCESS CODE">
+        <button onclick="checkLogin()">LOGIN</button>
+        <button onclick="window.open('https://t.me/yourchannel', '_blank')" style="background: transparent; color: var(--neon-green); border: 1px solid var(--neon-green);">JOIN TELEGRAM</button>
+        <div id="message"></div>
+    </div>
+
+    <div id="loadingSection" class="container">
+        <div class="spinner"></div>
+        <h2 style="letter-spacing: 2px;">LOADING...</h2>
+    </div>
+
+    <div id="mainSection" class="container" style="width: 350px;">
+        <h1>Number prediction</h1>
+        <label style="color: var(--neon-green); font-size: 0.8rem; letter-spacing: 2px;">ENTER PERIOD NUMBER</label>
+        <input type="number" id="periodInput" placeholder="e.g. 1029384">
+        
+        <div id="resultBall" class="result-ball">...</div>
+        
+        <button onclick="getResult()">GET RESULT</button>
+    </div>
+
+    <script>
+        // Matrix Animation
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#0F0";
+            ctx.font = fontSize + "px monospace";
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 35);
+
+        // Logic
+        let lastInput = "";
+
+        function checkLogin() {
+            const pass = document.getElementById('passInput').value;
+            const msg = document.getElementById('message');
+            
+            if (pass === "4321") {
+                msg.style.color = "var(--neon-green)";
+                msg.innerText = "✔ Login Successful!";
+                setTimeout(() => {
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('loadingSection').style.display = 'block';
+                    setTimeout(() => {
+                        document.getElementById('loadingSection').style.display = 'none';
+                        document.getElementById('mainSection').style.display = 'block';
+                    }, 1000);
+                }, 800);
+            } else {
+                msg.style.color = "var(--error-red)";
+                msg.innerText = "✘ Wrong Password!";
+            }
+        }
+
+        function getResult() {
+            const input = document.getElementById('periodInput').value;
+            const ball = document.getElementById('resultBall');
+
+            if (!input || isNaN(input)) {
+                ball.innerText = "Invalid";
+                ball.className = "result-ball pulse-red";
+                return;
+            }
+
+            if (input === lastInput) return;
+            lastInput = input;
+
+            // Start Spin
+            ball.innerText = "...";
+            ball.className = "result-ball spin";
+
+            setTimeout(() => {
+                const lastDigit = parseInt(input.slice(-1));
+                // Logic: BIG (5,6,7,9), SMALL (0,1,2,3,4,8)
+                const isBig = [5, 6, 7, 9].includes(lastDigit);
+                
+                ball.innerText = isBig ? "BIG" : "SMALL";
+                ball.className = isBig ? "result-ball pulse-red" : "result-ball pulse-green";
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
